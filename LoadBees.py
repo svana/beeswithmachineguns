@@ -105,7 +105,7 @@ def LoadEvents(host, count, total, mode='single'):
     for i in range(int(count)):
         if i % 5 == 0:
             set_new_cookies()
-        command = './bees attack -n '+ total +' -c 10 -u "'
+        command = './bees attack -n '+ str(int(total)/int(count)) +' -c 10 -u "'
         ##command = './bees attack -n '+ total +' -c ' + str(int(total)/10) + ' -u "'
         if mode == 'batch':
             addr = 'http://' + host + '/t.gif?tz=360&dc=test&bvid=' + BVID + '&bvsid=' + BVSID + '&client=' + random.choice(CLIENT) + '&batch='
@@ -119,7 +119,7 @@ def LoadEvents(host, count, total, mode='single'):
             addr = 'http://' + host + '/t.gif?tz=360&dc=test&client=' + random.choice(CLIENT)
             httpurl = addr + getSingleEvent()
             print "\n ITERATION:", i+1
-            print "\n COMPLETEURL IN SINGLE MODEE: \n", 
+            print "\n COMPLETE URL IN SINGLE MODEE: \n", 
             print httpurl
         elif mode == 'old':
             httpurl = getOldEvent(host)
@@ -129,9 +129,10 @@ def LoadEvents(host, count, total, mode='single'):
         print COMMANDLIST
 
     for req in COMMANDLIST:
-        print " Bees Command \n", req
+        print "\n Bees Command \n", req
         subprocess.Popen([req], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         os.system(req)
+        print " \n"
         time.sleep(5)
         continue
     os.system('./bees down')
@@ -149,7 +150,7 @@ def print_results():
 		#print "value:", val
 	#print "Total", total
 	avg_number_requests = total/len(f1data)
-	print "Average Number of Requests per Second:", avg_number_requests
+	print "=================	Average Number of Requests per Second:", avg_number_requests
 	
 	rsptime = 0.00
 	os.system('cat '+ LOGFILE + "/Result.txt  | grep '90% response time' | awk '{print $4}' > " + LOGFILE + "/rsp.txt")
@@ -159,11 +160,11 @@ def print_results():
 	for val in f2data:
 		rsptime = rsptime + float(val)
 	response_90th = rsptime/len(f2data)
-	print "90% Response Time:", response_90th
+	print "================		90% Response Time:", response_90th,  "[ms]"
 	
 	f2 = open(LOGFILE+'/Result.txt' , 'a')
-	f2.write('Average Number of Requests Per Second:' + str(avg_number_requests) + '\n')
-	f2.write('90th % Response Time:' + str(response_90th) + '\n')
+	f2.write(' \n ===========	Average Number of Requests Per Second:' + str(avg_number_requests) + '\n')
+	f2.write(' \n ===========	90th % Response Time:' + str(response_90th) + '\n')
 	f2.close()
 
 	rsptime = 0.00
@@ -174,7 +175,7 @@ def print_results():
 	for val in f3data:
 		rsptime = rsptime + float(val)
 	response_99th = rsptime/len(f3data)
-	print "99% Response Time:", response_99th
+	print "=================		99% Response Time:", response_99th,  "[ms]"
 
 	f3 = open(LOGFILE+'/Result.txt' , 'a')
 	f3.write('99th % Response Time:' + str(response_99th) + '\n')
