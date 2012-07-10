@@ -71,6 +71,10 @@ commands:
     up_group.add_option('-i', '--instance',  metavar="INSTANCE",  nargs=1,
                         action='store', dest='instance', type='string', default='ami-ff17fb96',
                         help="The instance-id to use for each server from (default: ami-ff17fb96).")
+    ### The following lines have to be swapped to use custom AMI
+    ###up_group.add_option('-i', '--instance',  metavar="INSTANCE",  nargs=1,
+    ###                    action='store', dest='instance', type='string', default='ami-f8a37b91',
+    ###                    help="The instance-id to use for each server from (default: ami-f8a37b91).")
     up_group.add_option('-l', '--login',  metavar="LOGIN",  nargs=1,
                         action='store', dest='login', type='string', default='newsapps',
                         help="The ssh username name to use to connect to the new servers (default: newsapps).")
@@ -84,7 +88,6 @@ commands:
     attack_group.add_option('-u', '--url', metavar="URL", nargs=1,
                         action='store', dest='url', type='string',
                         help="URL of the target to attack.")
-
     attack_group.add_option('-n', '--number', metavar="NUMBER", nargs=1,
                         action='store', dest='number', type='int', default=1000,
                         help="The number of total connections to make to the target (default: 1000).")
@@ -110,9 +113,10 @@ commands:
 
         bees.up(options.servers, options.group, options.zone, options.instance, options.login, options.key)
     elif command == 'attack':
+        #Comment the following two lines while using customr AMI.
         if not options.url:
             parser.error('To run an attack you need to specify a url with -u')
-
+        #Comment the following two lines while using customr AMI.
         if NO_TRAILING_SLASH_REGEX.match(options.url):
             parser.error('It appears your URL lacks a trailing slash, this will disorient the bees. Please try again with a trailing slash.')
 

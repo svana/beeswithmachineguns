@@ -187,6 +187,8 @@ def _attack(params):
         print 'Bee %i is firing his machine gun. Bang bang!' % params['i']
 
         stdin, stdout, stderr = client.exec_command('ab -r -n %(num_requests)s -c %(concurrent_requests)s -C "sessionid=NotARealSessionID" "%(url)s"' % params)
+        ### The Swap this line to use customr EC2 Instance
+        ####stdin, stdout, stderr = client.exec_command('ab -r -n %(num_requests)s -c %(concurrent_requests)s -C "sessionid=NotARealSessionID" -L URLlist.txt' % params)
 
         response = {}
 
@@ -200,12 +202,14 @@ def _attack(params):
         requests_per_second_search = re.search('Requests\ per\ second:\s+([0-9.]+)\ \[#\/sec\]\ \(mean\)', ab_results)
         fifty_percent_search = re.search('\s+50\%\s+([0-9]+)', ab_results)
         ninety_percent_search = re.search('\s+90\%\s+([0-9]+)', ab_results)
+        ninetynine_percent_search = re.search('\s+99\%\s+([0-9]+)', ab_results)
         complete_requests_search = re.search('Complete\ requests:\s+([0-9]+)', ab_results)
 
         response['ms_per_request'] = float(ms_per_request_search.group(1))
         response['requests_per_second'] = float(requests_per_second_search.group(1))
         response['fifty_percent'] = float(fifty_percent_search.group(1))
         response['ninety_percent'] = float(ninety_percent_search.group(1))
+        response['ninetynine_percent'] = float(ninetynine_percent_search.group(1))
         response['complete_requests'] = float(complete_requests_search.group(1))
 
         print 'Bee %i is out of ammo.' % params['i']
@@ -258,6 +262,10 @@ def _print_results(results):
     complete_results = [r['ninety_percent'] for r in complete_bees]
     mean_ninety = sum(complete_results) / num_complete_bees
     print '     90%% response time:\t\t%f [ms] (mean)' % mean_ninety
+
+    complete_results = [r['ninetynine_percent'] for r in complete_bees]
+    mean_ninetynine = sum(complete_results) / num_complete_bees
+    print '     99%% response time:\t\t%f [ms] (mean)' % mean_ninetynine
 
     if mean_response < 500:
         print 'Mission Assessment: Target crushed bee offensive.'
@@ -316,12 +324,13 @@ def attack(url, n, c):
     print 'Stinging URL so it will be cached for the attack.'
 
     # Ping url so it will be cached for testing
-    urllib2.urlopen(url)
+    # urllib2.urlopen(url)
 
     print 'Organizing the swarm.'
 
     # Spin up processes for connecting to EC2 instances
     pool = Pool(len(params))
+    print params
     results = pool.map(_attack, params)
 
     print 'Offensive complete.'
