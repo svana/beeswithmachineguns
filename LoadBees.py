@@ -15,6 +15,7 @@ import os, sys, time
 import datetime
 import subprocess
 import requests
+import argparse
 from subprocess import Popen, PIPE
 from datetime import datetime, timedelta
 
@@ -89,11 +90,15 @@ def getOldEvent(hostname):
     return oldurl
 
 
-def LoadEvents(host, count, total, mode='single'):
+#def LoadEvents(host, bee_count, total_events, mode='single'):
+def FireBees(args):
     global COOKIEMONSTER_DNS, LOGFILE
-    COOKIEMONSTER_DNS = host
+    COOKIEMONSTER_DNS = args.host
+    total_events = args.totalevents
+    bee_count = args.beecount
+    mode = args.mode
     os.system('./bees down')
-    os.system('./bees up -s '+ count +' -g ssh -k Magpie ')
+    os.system('./bees up -s '+ bee_count +' -g ssh -k Magpie ')
     logpath = str(datetime.now()).replace(' ', '-')
     logpath = '/tmp/' + logpath.replace(':','-')
     logpath = logpath.split('.')[0]
@@ -101,32 +106,52 @@ def LoadEvents(host, count, total, mode='single'):
     LOGFILE = logpath
     os.mkdir(logpath)
     time.sleep(50)
-
-    for i in range(int(count)):
-        if i % 5 == 0:
-            set_new_cookies()
-        command = './bees attack -n '+ str(int(total)/int(count)) +' -c 10 -u "'
-        ##command = './bees attack -n '+ total +' -c ' + str(int(total)/10) + ' -u "'
-        if mode == 'batch':
-            addr = 'http://' + host + '/t.gif?tz=360&dc=test&bvid=' + BVID + '&bvsid=' + BVSID + '&client=' + random.choice(CLIENT) + '&batch='
-            httpurl = addr + getBatchEvents()
-            for i in range(random.randint(1,3)):
-                httpurl = httpurl + ',' + getBatchEvents()
-                #print "\n ITERATION: ", i+1
-                #print "\n COMPLETE URL in BATCH MODE: \n"
-                print "URL:", httpurl
-        elif mode == 'single':  
-            addr = 'http://' + host + '/t.gif?tz=360&dc=test&client=' + random.choice(CLIENT)
-            httpurl = addr + getSingleEvent()
-            print "\n ITERATION:", i+1
-            print "\n COMPLETE URL IN SINGLE MODEE: \n", 
-            print httpurl
-        elif mode == 'old':
-            httpurl = getOldEvent(host)
+    if args.eventtype == 'single':
+    	command = './bees attack -n '+ total_events +' -c 10 -u "'
+    	if mode == 'batch':
+    		addr = 'http://' + host + '/t.gif?tz=360&dc=test&bvid=' + BVID + '&bvsid=' + BVSID + '&client=' + random.choice(CLIENT) + '&batch='
+    		httpurl = addr + getBatchEvents()
+        	for i in range(random.randint(1,3)):
+        		httpurl = httpurl + ',' + getBatchEvents()
+            	#print "\n ITERATION: ", i+1
+            	#print "\n COMPLETE URL in BATCH MODE: \n"
+            	print "URL:", httpurl
+    	elif mode == 'single':  
+    		addr = 'http://' + host + '/t.gif?tz=360&dc=test&client=' + random.choice(CLIENT)
+    		httpurl = addr + getSingleEvent()
+    		print "\n ITERATION:", i+1
+    		print "\n COMPLETE URL IN SINGLE MODEE: \n", 
+    		print httpurl
+    	elif mode == 'old':
+    		httpurl = getOldEvent(host)
         ecommand = command + httpurl + '" >> ' + logpath + '/Result.txt' + ' 2>&1'
-        #	print "Flushing DNS Cahce:", os.system('sudo dscacheutil -flushcache')
         COMMANDLIST.append(ecommand)
         print COMMANDLIST
+	
+	if args.eventtype == 'multiple':
+		for i in range(int(bee_count)):
+			if i % 5 == 0:
+				set_new_cookies()
+			command = './bees attack -n '+ str(int(total_events)/int(bee_count)) +' -c 10 -u "'
+			if mode == 'batch':
+				addr = 'http://' + host + '/t.gif?tz=360&dc=test&bvid=' + BVID + '&bvsid=' + BVSID + '&client=' + random.choice(CLIENT) + '&batch='
+				httpurl = addr + getBatchEvents()
+            			for i in range(random.randint(1,3)):
+                			httpurl = httpurl + ',' + getBatchEvents()
+                			#print "\n ITERATION: ", i+1
+                			#print "\n COMPLETE URL in BATCH MODE: \n"
+                			print "URL:", httpurl
+			if mode == 'single':
+				addr = 'http://' + host + '/t.gif?tz=360&dc=test&client=' + random.choice(CLIENT)
+				httpurl = addr + getSingleEvent()
+            			print "\n ITERATION:", i+1
+            			print "\n COMPLETE URL IN SINGLE MODEE: \n", 
+            			print "URL", httpurl
+			elif mode == 'old':
+    				httpurl = getOldEvent(host)
+			ecommand = command + httpurl + '" >> ' + logpath + '/Result.txt' + ' 2>&1'
+			COMMANDLIST.append(ecommand)
+			print COMMANDLIST
 
     for req in COMMANDLIST:
         print "\n Bees Command \n", req
@@ -142,7 +167,7 @@ def print_results():
 	global LOGFILE
 	total = 0
 	os.system('cat '+ LOGFILE + "/Result.txt  | grep 'Requests per second' | awk '{print $4}' > " + LOGFILE + "/rps.txt")
-	f1 = open('/tmp/rps.txt', 'r')
+	f1 = open( LOGFILE + '/rps.txt', 'r')
 	f1data = f1.readlines()
 	f1.close()
 	for val in f1data:
@@ -183,11 +208,18 @@ def print_results():
 
 
 if __name__=="__main__":
-    if len(sys.argv)<4:
-        print "\n"
-        print "Please provide all input parameters. <CookieMonster HostName> <# of Micro Instances> <Total Number of Requests>"
-        print "Ex: ./LoadMagpie-parallel.py cookiemonster-staging-1330424627.us-east-1.elb.amazonaws.com 4 100"
-        print "\n"
-        exit(0)
-    LoadEvents(sys.argv[1], sys.argv[2], sys.argv[3])
-    print_results()
+	parser = argparse.ArgumentParser(description=__doc__, add_help=True, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+	parser.add_argument('-c', '--host', default='cookiemonster-staging.mag.bazaarvoice.com',  help='DNS Name of Cookiemosner / ELB.')
+	parser.add_argument('-b', '--beecount',  default='4',				help='Number if Bees to be used.')
+	parser.add_argument('-t', '--totalevents',      default='10000',	help='Total Number of events to be created')
+	parser.add_argument('-e', '--eventtype',  default='multiple',		help='Only one type of Events or Multiple Types of events ex: single, multiple')
+	parser.add_argument('-m', '--mode',  default='single',		help='Mode in which events are sent ex: single, batch, old (To send olfformat events)')
+	args = parser.parse_args()
+ 	
+ 	print "\n"
+ 	print "Please provide all input parameters. <CookieMonster HostName> <# of Micro Instances> <Total Number of Requests>"
+ 	print "Ex: ./LoadMagpie-parallel.py cookiemonster-staging-1330424627.us-east-1.elb.amazonaws.com 4 100"
+ 	print "\n"
+ 	## LoadEvents(sys.argv[1], sys.argv[2], sys.argv[3])
+ 	FireBees(args)
+ 	print_results()
