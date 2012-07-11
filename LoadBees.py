@@ -6,21 +6,23 @@ Script to geneate load testing data for Magpie.
 
 HOW TO RUN:
 -----------
-./LoadMagpie.py <ELB HostName/Cookiemonster Host Name> <Number of Bee Instances> <Total Number of requests>
-Example: ./LoadMagpie-Parallel.py cookiemonster-staging-1330424627.us-east-1.elb.amazonaws.com 2 10
+./LoadBees.py -h
 """
 
-import random
+
 import os, sys, time
 import datetime
 import subprocess
 import requests
 import argparse
+import random
 from subprocess import Popen, PIPE
 from datetime import datetime, timedelta
 
-CLIENT = ["ABC", "GOOG", "MAG227", "MAG339", "MAG341"]
-MODE = ["old", "single" , "batch"]
+BVID = ''
+BVSID = ''
+CLIENT = ['ABC', 'GOOG', 'MAG227', 'MAG339', 'MAG341']
+MODE = ['old', 'single' , 'batch']
 CLASS  = ['SCI', 'PageView', 'Conversion', 'PIIConversion', 'PageView', 'Transaction', 'SCI',]
 EVENTTYPE = ['Sort', 'ReadAll', 'ProductFollow', 'Read', 'Associate', 'CustomClick', 'Default', 'Media', 'ProductLink', 'Paginate',
              'Write', 'Shoutit', 'Transaction', 'ProfileLink', 'AttributeFilter', 'SocialAlerts' , 'SubmitActivity']
@@ -33,134 +35,125 @@ LOGFILE = ""
 
 
 def set_new_cookies():
-    """ Get new cookies from Cookiemonster """
-    URL = 'http://' + COOKIEMONSTER_DNS + '/t.gif?client=COOKIE&type=COOKIE&dc=test&cl=SCI'
-    ##print "URL:", URL
-    response = requests.get(URL)
-    global BVID
-    BVID = response.cookies['BVSID']
-    global BVSID
-    BVSID = response.cookies['BVID']
-    print "\n COOKIES:", BVID, BVSID
+	""" Get new cookies from Cookiemonster """
+	global BVID, BVSID
+	URL = 'http://' + COOKIEMONSTER_DNS + '/t.gif?client=COOKIE&type=COOKIE&dc=test&cl=SCI'
+	##print "URL:", URL
+	response = requests.get(URL)
+	BVID = response.cookies['BVSID']
+	BVSID = response.cookies['BVID']
+	print "\n COOKIES:", BVID, BVSID
 
 
 def getBatchEvents():
-    half1st = "(charset:UTF-8,cid:testCategory1031,fieldErrors:!n,geo:1,host:example.com,lang:en-us,pageStatus:!n,pageType:!n,pid:test1,ref:'http://example.com/',"
-    half2nd = "res:'1680x1050',rootCid:testCategory1030,subject:Product,t:'(con:0,dns:0,load:-1330633078788,req:484,res:0,tot:-1330633078296)',version:'1.0',"
+	half1st = "(charset:UTF-8,cid:testCategory1031,fieldErrors:!n,geo:1,host:example.com,lang:en-us,pageStatus:!n,pageType:!n,pid:test1,ref:'http://example.com/',"
+	half2nd = "res:'1680x1050',rootCid:testCategory1030,subject:Product,t:'(con:0,dns:0,load:-1330633078788,req:484,res:0,tot:-1330633078296)',version:'1.0',"
+	cl = random.choice(CLASS)
+	if cl == 'SCI':
+		InputString = 'brand:test,bvproduct:' + random.choice(BVPRODUCT) + ',cl:' + cl + ',type:' + random.choice(EVENTTYPE) + ')'
+	elif cl == 'PageView':
+		InputString = 'brand:test,bvproduct:' + random.choice(BVPRODUCT) + ',cl:' + cl + ',type:' + random.choice(["Read", "Write", "Read"]) + ')'
+	elif cl == 'Conversion':
+		InputString = 'brand:test,bvproduct:' + random.choice(BVPRODUCT) + ',cl:' + cl + ',type:' + random.choice(["SubmitOrder", "Transaction", "StoreLocate"]) + ')'
+	elif cl == 'PIIConversion':
+		InputString = 'brand:test,bvproduct:' + random.choice(BVPRODUCT) + ',cl:' + cl + ',type:' + random.choice(["SubmitOrder", "Transaction", "StoreLocate"]) + ')'	
+	elif cl == 'Transaction':
+		InputString = 'brand:test,bvproduct:' + random.choice(BVPRODUCT) + ',cl:' + cl + ',type:' + random.choice(["proxy", "value", "Items"]) + ')'
 
-    cl = random.choice(CLASS)
-    if cl == 'SCI':
-        InputString = 'brand:test,bvproduct:' + random.choice(BVPRODUCT) + ',cl:' + cl + ',type:' + random.choice(EVENTTYPE) + ')'
-    elif cl == 'PageView':
-        InputString = 'brand:test,bvproduct:' + random.choice(BVPRODUCT) + ',cl:' + cl + ',type:' + random.choice(["Read", "Write", "Read"]) + ')'
-    elif cl == 'Conversion':
-        InputString = 'brand:test,bvproduct:' + random.choice(BVPRODUCT) + ',cl:' + cl + ',type:' + random.choice(["SubmitOrder", "Transaction", "StoreLocate"]) + ')'
-    elif cl == 'PIIConversion':
-        InputString = 'brand:test,bvproduct:' + random.choice(BVPRODUCT) + ',cl:' + cl + ',type:' + random.choice(["SubmitOrder", "Transaction", "StoreLocate"]) + ')'
-    elif cl == 'Transaction':
-    	InputString = 'brand:test,bvproduct:' + random.choice(BVPRODUCT) + ',cl:' + cl + ',type:' + random.choice(["proxy", "value", "Items"]) + ')'
-
-    BatchEvent = half1st + half2nd + InputString 
-    return BatchEvent
+	BatchEvent = half1st + half2nd + InputString 
+	return BatchEvent
 
 
 def getSingleEvent():
-    half1st = "&bvid=" + BVID + '&bvsid=' + BVSID + "&version=1.0&subject=Product&pid=test1&cid=testCategory1031&rootCid=testCategory1030&&pageType=null&pageStatus=null&fieldErrors=null&"
-    half2nd = "&host=example.com&ref=http://localhost:8980/&res=1680x1050&lang=en-us&charset=UTF-8&geo=1&t=%28con:0,dns:0,load:-1330633078788,req:484,res:0,tot:-1330633078296%29"
-    #print "Single Event"
-    cl = random.choice(CLASS)
-    if cl == 'SCI':
-        eventData = '&brand=test&bvproduct=' + random.choice(BVPRODUCT) + '&cl=' + cl + '&type=' + random.choice(EVENTTYPE)
-    elif cl == 'PageView':
-        eventData = '&brand=test&bvproduct=' + random.choice(BVPRODUCT) + '&cl=' + cl + '&type=' + random.choice(["Read", "Write", "Read"])
-    elif cl == 'Conversion':
-        eventData = '&brand=test&bvproduct=' + random.choice(BVPRODUCT) + '&cl=' + cl + '&type=' + random.choice(["StoreLocate", "Transaction", "SubmitActivity"])
-    elif cl == 'PIIConversion':
-        eventData = '&brand=test&bvproduct=' + random.choice(BVPRODUCT) + '&cl=' + cl + '&type=' + random.choice(["StoreLocate", "Transaction", "SubmitActivity"])
-    elif cl == 'Transaction':
-        eventData = '&brand=test&bvproduct=' + random.choice(BVPRODUCT) + '&cl=' + cl + '&type=' + random.choice(["Proxy", "Purchase", "Order"])
-    elif cl=='MAG':
-        eventData = '&brand=test&bvproduct=' + random.choice(BVPRODUCT) + '&cl=' + cl + '&type=' + random.choice(EVENTTYPE)
-    SingleEvent = half1st + eventData + half2nd
-    return SingleEvent
+	half1st = "&bvid=" + BVID + '&bvsid=' + BVSID + "&version=1.0&subject=Product&pid=test1&cid=testCategory1031&rootCid=testCategory1030&&pageType=null&pageStatus=null&fieldErrors=null&"
+	half2nd = "&host=example.com&ref=http://localhost:8980/&res=1680x1050&lang=en-us&charset=UTF-8&geo=1&t=%28con:0,dns:0,load:-1330633078788,req:484,res:0,tot:-1330633078296%29"
+	#print "Single Event"
+	cl = random.choice(CLASS)
+	if cl == 'SCI':
+		eventData = '&brand=test&bvproduct=' + random.choice(BVPRODUCT) + '&cl=' + cl + '&type=' + random.choice(EVENTTYPE)
+	elif cl == 'PageView':
+		eventData = '&brand=test&bvproduct=' + random.choice(BVPRODUCT) + '&cl=' + cl + '&type=' + random.choice(["Read", "Write", "Read"])
+	elif cl == 'Conversion':
+		eventData = '&brand=test&bvproduct=' + random.choice(BVPRODUCT) + '&cl=' + cl + '&type=' + random.choice(["StoreLocate", "Transaction", "SubmitActivity"])
+	elif cl == 'PIIConversion':
+		eventData = '&brand=test&bvproduct=' + random.choice(BVPRODUCT) + '&cl=' + cl + '&type=' + random.choice(["StoreLocate", "Transaction", "SubmitActivity"])
+	elif cl == 'Transaction':
+		eventData = '&brand=test&bvproduct=' + random.choice(BVPRODUCT) + '&cl=' + cl + '&type=' + random.choice(["Proxy", "Purchase", "Order"])
+	elif cl=='MAG':
+		eventData = '&brand=test&bvproduct=' + random.choice(BVPRODUCT) + '&cl=' + cl + '&type=' + random.choice(EVENTTYPE)
+	SingleEvent = half1st + eventData + half2nd
+	return SingleEvent
 
 
 def getOldEvent(hostname):
-    oldurl = 'http://' + hostname + '/t.gif?displaycode=0025-en_us&product=136085&client=ABC&cateogry=12345&contentuuid=550e8400-e29b-41d4-a716-446655440000&pagetype=Input&cb=1332342417564'
-    return oldurl
+	oldurl = 'http://' + hostname + '/t.gif?displaycode=0025-en_us&product=136085&client=ABC&cateogry=12345&contentuuid=550e8400-e29b-41d4-a716-446655440000&pagetype=Input&cb=1332342417564'
+	return oldurl
 
 
-#def LoadEvents(host, bee_count, total_events, mode='single'):
+def getHttpUrl(mode, host):
+	set_new_cookies()	
+	if mode == 'batch':
+		addr = 'http://' + host + '/t.gif?tz=360&dc=test&bvid=' + BVID + '&bvsid=' + BVSID + '&client=' + random.choice(CLIENT) + '&batch='
+		httpurl = addr + getBatchEvents()
+		for j in range(random.randint(1,3)):
+			httpurl = httpurl + ',' + getBatchEvents()
+			print "URL:", httpurl
+	if mode == 'single':
+		addr = 'http://' + host + '/t.gif?tz=360&dc=test&client=' + random.choice(CLIENT)
+		httpurl = addr + getSingleEvent()
+	elif mode == 'old':
+		httpurl = getOldEvent(host)
+	return httpurl
+
+
 def FireBees(args):
-    global COOKIEMONSTER_DNS, LOGFILE
-    COOKIEMONSTER_DNS = args.host
-    total_events = args.totalevents
-    bee_count = args.beecount
-    mode = args.mode
-    os.system('./bees down')
-    os.system('./bees up -s '+ bee_count +' -g ssh -k Magpie ')
-    logpath = str(datetime.now()).replace(' ', '-')
-    logpath = '/tmp/' + logpath.replace(':','-')
-    logpath = logpath.split('.')[0]
-    print "\n Path of Log Files:", logpath
-    LOGFILE = logpath
-    os.mkdir(logpath)
-    time.sleep(50)
-    if args.eventtype == 'single':
-    	command = './bees attack -n '+ total_events +' -c 10 -u "'
-    	if mode == 'batch':
-    		addr = 'http://' + host + '/t.gif?tz=360&dc=test&bvid=' + BVID + '&bvsid=' + BVSID + '&client=' + random.choice(CLIENT) + '&batch='
-    		httpurl = addr + getBatchEvents()
-        	for i in range(random.randint(1,3)):
-        		httpurl = httpurl + ',' + getBatchEvents()
-            	#print "\n ITERATION: ", i+1
-            	#print "\n COMPLETE URL in BATCH MODE: \n"
-            	print "URL:", httpurl
-    	elif mode == 'single':  
-    		addr = 'http://' + host + '/t.gif?tz=360&dc=test&client=' + random.choice(CLIENT)
-    		httpurl = addr + getSingleEvent()
-    		print "\n ITERATION:", i+1
-    		print "\n COMPLETE URL IN SINGLE MODEE: \n", 
-    		print httpurl
-    	elif mode == 'old':
-    		httpurl = getOldEvent(host)
-        ecommand = command + httpurl + '" >> ' + logpath + '/Result.txt' + ' 2>&1'
-        COMMANDLIST.append(ecommand)
-        print COMMANDLIST
+	global COOKIEMONSTER_DNS, LOGFILE, COMMANDLIST
+	COOKIEMONSTER_DNS = args.host
+
+	host = args.host
+	total_events = args.totalevents
+	bee_count = args.beecount
+	mode = args.mode
+	os.system('./bees down')
+	os.system('./bees up -s '+ bee_count +' -g ssh -k Magpie ')
 	
+	logpath = str(datetime.now()).replace(' ', '-')
+	logpath = '/tmp/' + logpath.replace(':','-')
+	logpath = logpath.split('.')[0]
+	print "\n Path of Log Files:", logpath
+
+	LOGFILE = logpath
+	os.mkdir(logpath)
+	time.sleep(30)
 	if args.eventtype == 'multiple':
 		for i in range(int(bee_count)):
-			if i % 5 == 0:
-				set_new_cookies()
-			command = './bees attack -n '+ str(int(total_events)/int(bee_count)) +' -c 10 -u "'
-			if mode == 'batch':
-				addr = 'http://' + host + '/t.gif?tz=360&dc=test&bvid=' + BVID + '&bvsid=' + BVSID + '&client=' + random.choice(CLIENT) + '&batch='
-				httpurl = addr + getBatchEvents()
-            			for i in range(random.randint(1,3)):
-                			httpurl = httpurl + ',' + getBatchEvents()
-                			#print "\n ITERATION: ", i+1
-                			#print "\n COMPLETE URL in BATCH MODE: \n"
-                			print "URL:", httpurl
-			if mode == 'single':
-				addr = 'http://' + host + '/t.gif?tz=360&dc=test&client=' + random.choice(CLIENT)
-				httpurl = addr + getSingleEvent()
-            			print "\n ITERATION:", i+1
-            			print "\n COMPLETE URL IN SINGLE MODEE: \n", 
-            			print "URL", httpurl
-			elif mode == 'old':
-    				httpurl = getOldEvent(host)
-			ecommand = command + httpurl + '" >> ' + logpath + '/Result.txt' + ' 2>&1'
-			COMMANDLIST.append(ecommand)
-			print COMMANDLIST
+		    command = './bees attack -n '+ str(int(total_events)/int(bee_count)) +' -c 10 -u "'
+		    httpurl = getHttpUrl(mode, host)
+		    ecommand = command + httpurl + '" >> ' + logpath + '/Result.txt' + ' 2>&1'
+		    COMMANDLIST.append(ecommand)
+		#print "\n Command List in Multiple Mode", COMMANDLIST
+	## Comments for nothing		
 
-    for req in COMMANDLIST:
-        print "\n Bees Command \n", req
-        subprocess.Popen([req], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        os.system(req)
-        print " \n"
-        time.sleep(5)
-        continue
-    os.system('./bees down')
+	if args.eventtype == 'single':
+		command = './bees attack -n '+ total_events +' -c 10 -u "'
+		httpurl_single = getHttpUrl(mode, host)
+		ecommand = command + httpurl_single + '" >> ' + logpath + '/Result.txt' + ' 2>&1'
+		COMMANDLIST.append(ecommand)
+    	#print "\n Command List in Single Mode", COMMANDLIST
+	FireEvents()
+	
+	
+def FireEvents():
+	global COMMANDLIST
+	print "\n Command List: ", COMMANDLIST
+	for req in COMMANDLIST:
+		print "\n Bees Command \n", req
+		subprocess.Popen([req], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		os.system(req)
+		print " \n"
+		time.sleep(5)
+		continue
+	os.system('./bees down')
 
 
 def print_results():
@@ -213,13 +206,7 @@ if __name__=="__main__":
 	parser.add_argument('-b', '--beecount',  default='4',				help='Number if Bees to be used.')
 	parser.add_argument('-t', '--totalevents',      default='10000',	help='Total Number of events to be created')
 	parser.add_argument('-e', '--eventtype',  default='multiple',		help='Only one type of Events or Multiple Types of events ex: single, multiple')
-	parser.add_argument('-m', '--mode',  default='single',		help='Mode in which events are sent ex: single, batch, old (To send olfformat events)')
+	parser.add_argument('-m', '--mode',  default='single',		help='Mode in which events are sent ex: single, batch, old')
 	args = parser.parse_args()
- 	
- 	print "\n"
- 	print "Please provide all input parameters. <CookieMonster HostName> <# of Micro Instances> <Total Number of Requests>"
- 	print "Ex: ./LoadMagpie-parallel.py cookiemonster-staging-1330424627.us-east-1.elb.amazonaws.com 4 100"
- 	print "\n"
- 	## LoadEvents(sys.argv[1], sys.argv[2], sys.argv[3])
  	FireBees(args)
  	print_results()
