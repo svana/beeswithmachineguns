@@ -205,7 +205,7 @@ if __name__=="__main__":
 	parser.add_argument('-c', '--host', default='cookiemonster-staging.mag.bazaarvoice.com',  help='DNS Name of Cookiemosner / ELB.')
 	parser.add_argument('-b', '--beecount',  default='4',				help='Number if Bees to be used.')
 	parser.add_argument('-t', '--totalevents',      default='10000',	help='Total Number of events to be created')
-	parser.add_argument('-e', '--eventtype',  default='multiple',		help='Only one type of Events or Multiple Types of events ex: single, multiple')
+	parser.add_argument('-e', '--eventtype',  default='single',		help='Only one type of Events or Multiple Types of events ex: single, multiple')
 	parser.add_argument('-m', '--mode',  default='single',		help='Mode in which events are sent ex: single, batch, old')
 	args = parser.parse_args()
  	FireBees(args)
